@@ -19,26 +19,44 @@ jobs:
       fail-fast: false
       matrix:
         repo:
-          - fork_repo: Alien-Swarm-Reactive-Drop
-            upstream_repo: ReactiveDrop/reactivedrop_public_src
-          - fork_repo: Bulk-Crap-Uninstaller
-            upstream_repo: Klocman/Bulk-Crap-Uninstaller
-          - fork_repo: certbot
-            upstream_repo: certbot/certbot
-          - fork_repo: ch1ckenscoop-svn
-            upstream_repo: Ch1ckenscoop/svn
-          - fork_repo: claude-code-showcase
-            upstream_repo: ChrisWiles/claude-code-showcase
-          - fork_repo: greenshot
-            upstream_repo: greenshot/greenshot
-          - fork_repo: keepassxc
-            upstream_repo: keepassxreboot/keepassxc
-          - fork_repo: Sharedown
-            upstream_repo: kylon/Sharedown
-          - fork_repo: wikijs
-            upstream_repo: requarks/wiki
           - fork_repo: xpipe
             upstream_repo: xpipe-io/xpipe
+          - fork_repo: greenshot
+            upstream_repo: greenshot/greenshot
+          - fork_repo: certbot
+            upstream_repo: certbot/certbot
+          - fork_repo: Bulk-Crap-Uninstaller
+            upstream_repo: Klocman/Bulk-Crap-Uninstaller
+          - fork_repo: wikijs
+            upstream_repo: requarks/wiki
+          - fork_repo: Sharedown
+            upstream_repo: kylon/Sharedown
+          - fork_repo: keepassxc
+            upstream_repo: keepassxreboot/keepassxc
+          - fork_repo: claude-code-showcase
+            upstream_repo: ChrisWiles/claude-code-showcase
+          - fork_repo: ch1ckenscoop-svn
+            upstream_repo: Ch1ckenscoop/svn
+          - fork_repo: Alien-Swarm-Reactive-Drop
+            upstream_repo: ReactiveDrop/reactivedrop_public_src
+          - fork_repo: privacybadger
+            upstream_repo: EFForg/privacybadger
+          - fork_repo: mozilla-firefox-policy-templates
+            upstream_repo: mozilla/policy-templates
+          - fork_repo: uBlock-Origin
+            upstream_repo: gorhill/uBlock
+          - fork_repo: pingora
+            upstream_repo: cloudflare/pingora
+          - fork_repo: Consent-O-Matic
+            upstream_repo: cavi-au/Consent-O-Matic
+          - fork_repo: ClearURLs
+            upstream_repo: ClearURLs/Addon
+          - fork_repo: river
+            upstream_repo: memorysafety/river
+          - fork_repo: HashCheck
+            upstream_repo: gurnec/HashCheck
+          - fork_repo: qBittorrent
+            upstream_repo: qbittorrent/qBittorrent
     env:
       FORK_OWNER: tsiakoulias
     steps:
