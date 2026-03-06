@@ -57,6 +57,10 @@ jobs:
             upstream_repo: gurnec/HashCheck
           - fork_repo: qBittorrent
             upstream_repo: qbittorrent/qBittorrent
+          - fork_repo: postal
+            upstream_repo: postalserver/postal
+          - fork_repo: Microsoft-Message-Header-Analyzer
+            upstream_repo: microsoft/MHA
     env:
       FORK_OWNER: tsiakoulias
     steps:
