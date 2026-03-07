@@ -116,6 +116,41 @@ jobs:
             exit 1
           fi
 
+      - name: Preflight token access for target fork
+        env:
+          FORK_REPO: ${{ matrix.repo.fork_repo }}
+          FORK_SYNC_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          api_url="https://api.github.com/repos/${FORK_OWNER}/${FORK_REPO}"
+          body_file="$(mktemp)"
+          headers_file="$(mktemp)"
+
+          http_code="$(curl -sS -D "$headers_file" -o "$body_file" -w "%{http_code}" \
+            -H "Authorization: token ${FORK_SYNC_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "$api_url")"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Token cannot access ${FORK_OWNER}/${FORK_REPO} (HTTP ${http_code}). Verify fine-grained token repo selection, private repo access, and org SSO authorization."
+            cat "$body_file"
+            exit 1
+          fi
+
+          if ! grep -Eq '"push"[[:space:]]*:[[:space:]]*true' "$body_file"; then
+            echo "::error::Token does not appear to have push access on ${FORK_OWNER}/${FORK_REPO}. Grant repository Contents: Read and write."
+            cat "$body_file"
+            exit 1
+          fi
+
+          # Classic PATs expose scopes in response headers. Fine-grained PATs may not.
+          scopes="$(tr -d '\r' < "$headers_file" | awk -F': ' 'tolower($1)=="x-oauth-scopes"{print $2}')"
+
+          if [ -n "$scopes" ] && ! echo "$scopes" | grep -Eq '(^|,| )workflow(,|$)'; then
+            echo "::warning::Classic PAT scopes do not include 'workflow'. Pushes that modify .github/workflows/* will fail. Add workflow scope."
+          fi
+
       - name: Mirror upstream branch to fork branch
         env:
           FORK_REPO: ${{ matrix.repo.fork_repo }}
@@ -147,7 +182,22 @@ jobs:
             exit 1
           fi
 
-          git fetch upstream "$upstream_branch" --prune
-          git push --force origin "refs/remotes/upstream/$upstream_branch:refs/heads/$fork_branch"
+          git fetch --no-tags --prune upstream "$upstream_branch"
+
+          set +e
+          push_output="$(git push --force origin "refs/remotes/upstream/$upstream_branch:refs/heads/$fork_branch" 2>&1)"
+          push_status=$?
+          set -e
+
+          echo "$push_output"
+
+          if [ $push_status -ne 0 ]; then
+            if echo "$push_output" | grep -Eqi 'workflow|refusing to allow a personal access token'; then
+              echo "::error::Push likely blocked by token permissions for workflow files. Ensure token has Workflows: Read and write (or classic scope: workflow)."
+            elif echo "$push_output" | grep -Eqi 'protected branch hook declined|protected branch|cannot force-push'; then
+              echo "::error::Push blocked by branch protection on ${FORK_OWNER}/${FORK_REPO}:${fork_branch}. Allow force-push bypass or adjust protection rules."
+            fi
+            exit $push_status
+          fi
 
           echo "Mirrored ${UPSTREAM_REPO}:${upstream_branch} -> ${FORK_OWNER}/${FORK_REPO}:${fork_branch}"
