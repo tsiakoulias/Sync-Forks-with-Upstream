@@ -107,10 +107,6 @@ jobs:
             upstream_repo: OhMyGuus/I-Still-Dont-Care-About-Cookies
             upstream_branch: master
             fork_branch: main
-          - fork_repo: Auto-GPT
-            upstream_repo: Significant-Gravitas/Auto-GPT
-            upstream_branch: master
-            fork_branch: main
     env:
       FORK_OWNER: tsiakoulias
     steps:
