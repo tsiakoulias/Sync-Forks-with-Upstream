@@ -1,0 +1,211 @@
+name: Sync forks with upstream
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */2 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-forks-with-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        repo:
+          - fork_repo: xpipe
+            upstream_repo: xpipe-io/xpipe
+            upstream_branch: master
+            fork_branch: main
+          - fork_repo: greenshot
+            upstream_repo: greenshot/greenshot
+            upstream_branch: main
+            fork_branch: main
+          - fork_repo: certbot
+            upstream_repo: certbot/certbot
+            upstream_branch: main
+            fork_branch: main
+          - fork_repo: Bulk-Crap-Uninstaller
+            upstream_repo: Klocman/Bulk-Crap-Uninstaller
+            upstream_branch: master
+            fork_branch: main
+          - fork_repo: wikijs
+            upstream_repo: requarks/wiki
+            upstream_branch: main
+            fork_branch: main
+          - fork_repo: Sharedown
+            upstream_repo: kylon/Sharedown
+            upstream_branch: main
+            fork_branch: main
+          - fork_repo: keepassxc
+            upstream_repo: keepassxreboot/keepassxc
+            upstream_branch: develop
+            fork_branch: main
+          - fork_repo: claude-code-showcase
+            upstream_repo: ChrisWiles/claude-code-showcase
+            upstream_branch: main
+            fork_branch: main
+          - fork_repo: ch1ckenscoop-svn
+            upstream_repo: Ch1ckenscoop/svn
+            upstream_branch: master
+            fork_branch: main
+          - fork_repo: Alien-Swarm-Reactive-Drop
+            upstream_repo: ReactiveDrop/reactivedrop_public_src
+            upstream_branch: reactivedrop_beta
+            fork_branch: main
+          - fork_repo: privacybadger
+            upstream_repo: EFForg/privacybadger
+            upstream_branch: master
+            fork_branch: main
+          - fork_repo: mozilla-firefox-policy-templates
+            upstream_repo: mozilla/policy-templates
+            upstream_branch: master
+            fork_branch: main
+          - fork_repo: uBlock-Origin
+            upstream_repo: gorhill/uBlock
+            upstream_branch: master
+            fork_branch: main
+          - fork_repo: pingora
+            upstream_repo: cloudflare/pingora
+            upstream_branch: main
+            fork_branch: main
+          - fork_repo: Consent-O-Matic
+            upstream_repo: cavi-au/Consent-O-Matic
+            upstream_branch: master
+            fork_branch: main
+          - fork_repo: ClearURLs
+            upstream_repo: ClearURLs/Addon
+            upstream_branch: master
+            fork_branch: main
+          - fork_repo: river
+            upstream_repo: memorysafety/river
+            upstream_branch: main
+            fork_branch: main
+          - fork_repo: HashCheck
+            upstream_repo: gurnec/HashCheck
+            upstream_branch: master
+            fork_branch: main
+          - fork_repo: qBittorrent
+            upstream_repo: qbittorrent/qBittorrent
+            upstream_branch: master
+            fork_branch: main
+          - fork_repo: postal
+            upstream_repo: postalserver/postal
+            upstream_branch: main
+            fork_branch: main
+          - fork_repo: Microsoft-Message-Header-Analyzer
+            upstream_repo: microsoft/MHA
+            upstream_branch: main
+            fork_branch: main
+          - fork_repo: AutoGPT
+            upstream_repo: Significant-Gravitas/AutoGPT
+            upstream_branch: master
+            fork_branch: main
+          - fork_repo: I-Still-Dont-Care-About-Cookies
+            upstream_repo: OhMyGuus/I-Still-Dont-Care-About-Cookies
+            upstream_branch: master
+            fork_branch: main
+    env:
+      FORK_OWNER: tsiakoulias
+    steps:
+      - name: Validate token
+        env:
+          FORK_SYNC_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${FORK_SYNC_TOKEN:-}" ]; then
+            echo "::error::Missing FORK_SYNC_TOKEN secret."
+            exit 1
+          fi
+
+      - name: Preflight token access for target fork
+        env:
+          FORK_REPO: ${{ matrix.repo.fork_repo }}
+          FORK_SYNC_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          api_url="https://api.github.com/repos/${FORK_OWNER}/${FORK_REPO}"
+          body_file="$(mktemp)"
+          headers_file="$(mktemp)"
+
+          http_code="$(curl -sS -D "$headers_file" -o "$body_file" -w "%{http_code}" \
+            -H "Authorization: token ${FORK_SYNC_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "$api_url")"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Token cannot access ${FORK_OWNER}/${FORK_REPO} (HTTP ${http_code}). Verify fine-grained token repo selection, private repo access, and org SSO authorization."
+            cat "$body_file"
+            exit 1
+          fi
+
+          if ! grep -Eq '"push"[[:space:]]*:[[:space:]]*true' "$body_file"; then
+            echo "::error::Token does not appear to have push access on ${FORK_OWNER}/${FORK_REPO}. Grant repository Contents: Read and write."
+            cat "$body_file"
+            exit 1
+          fi
+
+          # Classic PATs expose scopes in response headers. Fine-grained PATs may not.
+          scopes="$(tr -d '\r' < "$headers_file" | awk -F': ' 'tolower($1)=="x-oauth-scopes"{print $2}')"
+
+          if [ -n "$scopes" ] && ! echo "$scopes" | grep -Eq '(^|,| )workflow(,|$)'; then
+            echo "::warning::Classic PAT scopes do not include 'workflow'. Pushes that modify .github/workflows/* will fail. Add workflow scope."
+          fi
+
+      - name: Mirror upstream branch to fork branch
+        env:
+          FORK_REPO: ${{ matrix.repo.fork_repo }}
+          UPSTREAM_REPO: ${{ matrix.repo.upstream_repo }}
+          # Optional per-repo branch overrides. Leave empty to use remote defaults.
+          FORK_BRANCH: ${{ matrix.repo.fork_branch || '' }}
+          UPSTREAM_BRANCH: ${{ matrix.repo.upstream_branch || '' }}
+          FORK_SYNC_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          workdir="$(mktemp -d)"
+          trap 'rm -rf "$workdir"' EXIT
+          cd "$workdir"
+
+          git clone --no-tags --filter=blob:none "https://x-access-token:${FORK_SYNC_TOKEN}@github.com/${FORK_OWNER}/${FORK_REPO}.git" fork
+          cd fork
+
+          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
+
+          fork_default="$(git ls-remote --symref origin HEAD | awk '/^ref:/ {print $2}' | sed 's#refs/heads/##')"
+          upstream_default="$(git ls-remote --symref upstream HEAD | awk '/^ref:/ {print $2}' | sed 's#refs/heads/##')"
+
+          fork_branch="${FORK_BRANCH:-$fork_default}"
+          upstream_branch="${UPSTREAM_BRANCH:-$upstream_default}"
+
+          if [ -z "$fork_default" ] || [ -z "$upstream_default" ] || [ -z "$fork_branch" ] || [ -z "$upstream_branch" ]; then
+            echo "::error::Could not resolve branches for ${FORK_REPO} or ${UPSTREAM_REPO}."
+            exit 1
+          fi
+
+          git fetch --no-tags --prune upstream "$upstream_branch"
+
+          set +e
+          push_output="$(git push --force origin "refs/remotes/upstream/$upstream_branch:refs/heads/$fork_branch" 2>&1)"
+          push_status=$?
+          set -e
+
+          echo "$push_output"
+
+          if [ $push_status -ne 0 ]; then
+            if echo "$push_output" | grep -Eqi 'workflow|refusing to allow a personal access token'; then
+              echo "::error::Push likely blocked by token permissions for workflow files. Ensure token has Workflows: Read and write (or classic scope: workflow)."
+            elif echo "$push_output" | grep -Eqi 'protected branch hook declined|protected branch|cannot force-push'; then
+              echo "::error::Push blocked by branch protection on ${FORK_OWNER}/${FORK_REPO}:${fork_branch}. Allow force-push bypass or adjust protection rules."
+            fi
+            exit $push_status
+          fi
+
+          echo "Mirrored ${UPSTREAM_REPO}:${upstream_branch} -> ${FORK_OWNER}/${FORK_REPO}:${fork_branch}"
