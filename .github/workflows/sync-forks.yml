@@ -3,7 +3,7 @@ name: Sync forks with upstream
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 */2 * * *"
+    - cron: "0 3 * * *" # Every day at 03:00 UTC
 
 permissions:
   contents: read
