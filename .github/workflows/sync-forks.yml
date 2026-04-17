@@ -111,6 +111,34 @@ jobs:
             upstream_repo: OhMyGuus/I-Still-Dont-Care-About-Cookies
             upstream_branch: master
             fork_branch: main
+          - fork_repo: EverythingToolbar
+            upstream_repo: srwi/EverythingToolbar
+            upstream_branch: develop
+            fork_branch: main
+          - fork_repo: openstego
+            upstream_repo: syvaidya/openstego
+            upstream_branch: master
+            fork_branch: main
+          - fork_repo: agents.md
+            upstream_repo: agentsmd/agents.md
+            upstream_branch: main
+            fork_branch: main
+          - fork_repo: agentskills
+            upstream_repo: agentskills/agentskills
+            upstream_branch: main
+            fork_branch: main
+          - fork_repo: file-unlocker-for-windows
+            upstream_repo: marianpekar/file-unlocker-for-windows
+            upstream_branch: master
+            fork_branch: main
+          - fork_repo: heretic
+            upstream_repo: p-e-w/heretic
+            upstream_branch: master
+            fork_branch: main
+          - fork_repo: wshobson-agents
+            upstream_repo: wshobson/agents
+            upstream_branch: main
+            fork_branch: main
     env:
       FORK_OWNER: tsiakoulias
     steps:
